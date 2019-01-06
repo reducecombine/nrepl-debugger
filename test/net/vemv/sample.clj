@@ -12,4 +12,4 @@
     (let [y (+ x 3)]
       (letfn [(omg [z]
                 (* y 2))]
-        (debugger/eval-with-locals (debugger/local-bindings) *ns*)))))
+        (debugger/debugger)))))

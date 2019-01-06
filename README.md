@@ -58,6 +58,33 @@ You can evaluate arbitrary forms inside `in-context`.
 
 As you finish your repl session with <kbd>Control</kbd><kbd>D</kbd>, execution in your app will resume, cleanly stopping the nREPL server.
 
+## Usage within threading macros
+
+`debugger` ignores any passed arguments, making it apt for `doto`:
+
+```clojure
+(doto something debugger foo bar)
+```
+
+What about threading macros? The original `debugger` would break the underlying `->` because of its return value.
+
+For that scenario, `debugger->` is provided:
+
+```clojure
+(-> something inc debugger-> dec)
+````
+
+`debugger->` works like `debugger`, except that it accepts one argument, exposing it as the `*debugger->*` dynamic variable,
+and returning the argument so that `->` doesn't break.
+
+That way, you can debug threading macros - an old problem!
+
+There's no `debugger->>` - `debugger->` is enough for `->>`:
+
+```clojure
+(->> something inc debugger-> dec)
+```
+
 ## Limitations
 
 * For now a single global debugging-context and nREPL server are assumed, so don't try debugging things in parallel or with reentrancy.

@@ -43,6 +43,28 @@
 (defn running? [server]
   (some-> server :open-transports deref seq boolean))
 
+(def ^:dynamic
+  *perform-side-effects?*
+  "Whether `#'impl` should launch and nREPL and wait for it. Enables unit testing."
+  true)
+
+(defn impl []
+  `(let [eval-fn# (eval-with-locals (local-bindings) *ns*)]
+     (if-not *perform-side-effects?*
+       eval-fn#
+       (let [_# (println "Entered debugger.")
+             _# (alter-var-root #'global-eval-fn (constantly eval-fn#))
+             server# (nrepl/start-server)
+             _# (println (str "Started debugging server at port " (:port server#) ". Copied connection command to the clipboard."))
+             _# (clipboard/spit (str "lein repl :connect " (:port server#)))
+             _# (alter-var-root #'global-nrepl-server (constantly server#))]
+         (while (not (running? server#)) ;; wait for a connection...
+           (Thread/yield))
+         (while (running? server#) ;; wait for its disconnection...
+           (Thread/yield))
+         (exit)
+         (println "Exited debugger.")))))
+
 (defmacro debugger
   "Opens a debugger repl over a nREPL server at a random port.
 
@@ -51,16 +73,21 @@
   `#'debugger` disregards its arguments, which is handy for placing it in the middle of any expression
   (e.g. a large `doto` chain)."
   [& _]
-  `(let [_# (println "Entered debugger.")
-         eval-fn# (eval-with-locals (local-bindings) *ns*)
-         _# (alter-var-root #'global-eval-fn (constantly eval-fn#))
-         server# (nrepl/start-server)
-         _# (println (str "Started debugging server at port " (:port server#) ". Copied connection command to the clipboard."))
-         _# (clipboard/spit (str "lein repl :connect " (:port server#)))
-         _# (alter-var-root #'global-nrepl-server (constantly server#))]
-     (while (not (running? server#)) ;; wait for a connection...
-       (Thread/yield))
-     (while (running? server#) ;; wait for its disconnection...
-       (Thread/yield))
-     (exit)
-     (println "Exited debugger.")))
+  (impl))
+
+(def ^:dynamic
+  *debugger->*
+  "See `#'debugger->`.")
+
+(defmacro debugger->
+  "Like `#'debugger`, but it returns its argument.
+
+  Apt for being inserted in the middle of a `(-> ...)` or `(->> ...)` chain,
+  without breaking the chain itself after the debugging session completes.
+
+  The argument will be bound in the debugging environment as`*debugger->*`"
+  [x]
+  `(let [v# ~x]
+     (binding [*debugger->* v#]
+       ~(impl)
+       v#)))
