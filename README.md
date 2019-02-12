@@ -95,5 +95,5 @@ There's no `debugger->>` - `debugger->` is enough for `->>`:
 Probably your IDE has some sort of configurable snippet system. As an idea, you can bind the following to `dbg`:
 
 ```clojure
-(do (require 'net.vemv.nrepl-debugger) (net.vemv.nrepl-debugger/debugger))
+(do (require 'net.vemv.nrepl-debugger) (eval '(net.vemv.nrepl-debugger/debugger)))
 ```
